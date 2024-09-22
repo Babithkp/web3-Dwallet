@@ -2,6 +2,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { ed25519 } from '@noble/curves/ed25519';
 
 export default function Airdrops() {
   const [amount, setAmount] = useState("");
@@ -12,6 +13,7 @@ export default function Airdrops() {
   const { connection } = useConnection();
   const [airDropLoading, setAirDropLoading] = useState(false);
   const [transferLoading, setTransferLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   const fetchBalance = useCallback(async () => {
     if (wallet.publicKey) {
@@ -75,13 +77,9 @@ export default function Airdrops() {
             lamports: toAmount * LAMPORTS_PER_SOL,
           })
         );
-         await wallet.sendTransaction(
-          transaction,
-          connection,
-          {
-            minContextSlot,
-          }
-        );
+        await wallet.sendTransaction(transaction, connection, {
+          minContextSlot,
+        });
 
         fetchBalance();
         toast.success("Solana transaction sent successfully");
@@ -94,6 +92,23 @@ export default function Airdrops() {
     } else {
       toast.error("Please Enter public key and Amount to transfer");
     }
+  };
+
+  const signMessageHandler = async () => {
+    if (!wallet.publicKey) {
+      toast.error("Wallet not connected!");
+      return;
+    }
+    if (!message) {
+      toast.error("Please enter a message to sign");
+      return;
+    }
+
+    const encodedMessage = new TextEncoder().encode(message);
+    const signature = await wallet.signMessage(encodedMessage);
+
+    if (!ed25519.verify(signature, encodedMessage, wallet.publicKey.toBytes())) throw new Error('Message signature invalid!');
+    toast.success("Message signed successfully");
   };
 
   useEffect(() => {
@@ -151,6 +166,24 @@ export default function Airdrops() {
           </button>
         </div>
       </div>
+      <section>
+        <label>Sign Message</label>
+        <div className="flex justify-between gap-2 mt-5">
+          <input
+            type="text"
+            className="w-1/2 px-2 rounded-md text-black"
+            placeholder="Write your message here"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <button
+            onClick={signMessageHandler}
+            className="mr-10 w-1/4 bg-blue-900 p-2 px-3 rounded-md text-base font-medium flex justify-center items-center h-10"
+          >
+            Sign Message
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
